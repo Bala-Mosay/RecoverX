@@ -1,0 +1,37 @@
+version: "3.8"
+
+services:
+  mandatemind:
+    build: .
+    container_name: mandatemind-app
+    volumes:
+      - ./data:/app/data
+      - ./models:/app/models
+      - mandatemind-db:/app
+    environment:
+      - PYTHONUNBUFFERED=1
+    command: python run_recovery.py
+
+  dashboard:
+    build: .
+    container_name: mandatemind-dashboard
+    ports:
+      - "8501:8501"
+    volumes:
+      - ./data:/app/data
+      - mandatemind-db:/app
+    environment:
+      - PYTHONUNBUFFERED=1
+    command: python -m streamlit run src/dashboard/dashboard.py --server.port 8501 --server.address 0.0.0.0
+    depends_on:
+      - mandatemind
+
+  tests:
+    build: .
+    container_name: mandatemind-tests
+    volumes:
+      - ./data:/app/data
+    command: python -m pytest tests/ -v
+
+volumes:
+  mandatemind-db:
