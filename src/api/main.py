@@ -2,6 +2,7 @@ import os
 import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
+import json
 import logging
 from datetime import datetime
 from fastapi import FastAPI, Request, HTTPException, Header
@@ -14,7 +15,7 @@ from src.compliance.guard import RBIComplianceGuard
 from src.ai.predictor import heuristic_predict
 from src.integration.razorpay import RazorpayClient
 from src.integration.notify import MockWhatsAppAdapter
-from src.models.database import SessionLocal, PaymentEventRecord, ComplianceRecord, RetryRecord
+from src.models.database import SessionLocal, PaymentEventRecord, ComplianceRecord, RetryRecord, NotificationRecord
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("webhook_server")
@@ -123,17 +124,28 @@ async def handle_payment_failure(parsed: dict) -> dict:
         ))
 
         action_taken = "NONE"
+        notification_payload = None
+        notification_template = None
+
         if not decision.allowed:
             if decision.action.value == "STEP_UP_LINK":
                 link = razorpay.create_payment_link(amount, customer_id)
-                whatsapp.send("stepup_link", customer_id=customer_id, amount=amount, payment_url=link.get("url", ""))
+                notif = whatsapp.send("stepup_link", customer_id=customer_id, amount=amount, payment_url=link.get("url", ""))
+                notification_payload = notif.get("payload", {})
+                notification_template = "stepup_link"
                 action_taken = "STEP_UP_LINK_SENT"
-            else:
+            elif decision.action.value == "STOP":
+                notif = whatsapp.send("mandate_exhausted", customer_id=customer_id, subscription_id=subscription_id)
+                notification_payload = notif.get("payload", {})
+                notification_template = "mandate_exhausted"
                 action_taken = "STOPPED"
         else:
             action_taken = "RETRY_SCHEDULED"
             h["last_attempt"] = datetime.now()
             h["retry_count_last_7d"] += 1
+            notif = whatsapp.send("retry_notification", customer_id=customer_id, amount=amount, subscription_id=subscription_id, retry_time=f"+{ai_rec['delay_hours']}h")
+            notification_payload = notif.get("payload", {})
+            notification_template = "retry_notification"
 
         db.add(RetryRecord(
             id=f"RETRY_{event_id}",
@@ -145,6 +157,16 @@ async def handle_payment_failure(parsed: dict) -> dict:
             ai_delay_hours=ai_rec["delay_hours"],
             ai_confidence=ai_rec["confidence"],
         ))
+
+        if notification_template:
+            db.add(NotificationRecord(
+                id=f"NOTIF_{event_id}",
+                event_id=event_id,
+                channel="whatsapp",
+                template=notification_template,
+                recipient=customer_id,
+                payload=json.dumps(notification_payload) if notification_payload else "",
+            ))
 
         db.commit()
     except Exception as e:
@@ -199,6 +221,30 @@ async def get_metrics():
             "allowed": allowed,
             "blocked": blocked,
             "recovery_rate": round((allowed / total_events * 100), 1) if total_events > 0 else 0,
+        }
+    finally:
+        db.close()
+
+
+@app.get("/notifications")
+async def get_notifications(limit: int = 50):
+    db = SessionLocal()
+    try:
+        records = db.query(NotificationRecord).order_by(NotificationRecord.timestamp.desc()).limit(limit).all()
+        return {
+            "total": len(records),
+            "notifications": [
+                {
+                    "id": r.id,
+                    "event_id": r.event_id,
+                    "channel": r.channel,
+                    "template": r.template,
+                    "recipient": r.recipient,
+                    "payload": json.loads(r.payload) if r.payload else {},
+                    "timestamp": r.timestamp.isoformat() if r.timestamp else "",
+                }
+                for r in records
+            ],
         }
     finally:
         db.close()

@@ -3,6 +3,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 import sqlite3
+import json
 import pandas as pd
 import streamlit as st
 from datetime import datetime
@@ -54,6 +55,16 @@ def load_simulations():
     return df
 
 
+def load_notifications():
+    conn = get_connection()
+    try:
+        df = pd.read_sql_query("SELECT * FROM notifications ORDER BY timestamp DESC", conn)
+    except Exception:
+        df = pd.DataFrame()
+    conn.close()
+    return df
+
+
 def main():
     st.set_page_config(
         page_title="MandateMind Dashboard",
@@ -64,7 +75,7 @@ def main():
     st.title("MandateMind Dashboard")
     st.caption("AI-Powered Payment Recovery Engine with RBI Compliance")
 
-    tab1, tab2, tab3, tab4 = st.tabs(["Overview", "Events", "Compliance", "Simulations"])
+    tab1, tab2, tab3, tab4, tab5 = st.tabs(["Overview", "Events", "Compliance", "Notifications", "Simulations"])
 
     with tab1:
         render_overview()
@@ -76,6 +87,9 @@ def main():
         render_compliance()
 
     with tab4:
+        render_notifications()
+
+    with tab5:
         render_simulations()
 
 
@@ -226,6 +240,73 @@ def render_simulations():
         chart_data["timestamp"] = pd.to_datetime(chart_data["timestamp"])
         chart_data = chart_data.sort_values("timestamp")
         st.line_chart(chart_data.set_index("timestamp")["recovery_rate"])
+
+
+def render_notifications():
+    st.header("WhatsApp Notifications")
+
+    notifications = load_notifications()
+
+    if notifications.empty:
+        st.info("No notifications yet. Run: python run_whatsapp_sim.py")
+        return
+
+    col1, col2, col3 = st.columns(3)
+
+    with col1:
+        st.metric("Total Sent", len(notifications))
+
+    with col2:
+        templates = notifications["template"].value_counts()
+        st.metric("Template Types", len(templates))
+
+    with col3:
+        st.metric("Recipients", notifications["recipient"].nunique())
+
+    st.divider()
+
+    col_left, col_right = st.columns(2)
+
+    with col_left:
+        st.subheader("By Template")
+        if not notifications.empty:
+            template_counts = notifications["template"].value_counts()
+            st.bar_chart(template_counts)
+
+    with col_right:
+        st.subheader("By Channel")
+        if not notifications.empty:
+            channel_counts = notifications["channel"].value_counts()
+            st.bar_chart(channel_counts)
+
+    st.divider()
+
+    st.subheader("Notification History")
+
+    template_filter = st.selectbox(
+        "Filter by template",
+        ["All"] + list(notifications["template"].unique()),
+    )
+
+    filtered = notifications.copy()
+    if template_filter != "All":
+        filtered = filtered[filtered["template"] == template_filter]
+
+    st.write(f"Showing {len(filtered)} of {len(notifications)} notifications")
+
+    for _, row in filtered.head(20).iterrows():
+        try:
+            payload = json.loads(row["payload"]) if row["payload"] else {}
+        except Exception:
+            payload = {}
+
+        body = payload.get("body", "No content")
+        template = row["template"]
+        recipient = row["recipient"]
+        timestamp = row["timestamp"]
+
+        with st.expander(f"[{template}] {recipient} - {timestamp}"):
+            st.code(body, language=None)
 
 
 if __name__ == "__main__":
