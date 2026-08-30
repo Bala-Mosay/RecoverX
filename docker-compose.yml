@@ -3,14 +3,30 @@ version: "3.8"
 services:
   mandatemind:
     build: .
-    container_name: mandatemind-app
+    container_name: mandatemind-engine
     volumes:
       - ./data:/app/data
       - ./models:/app/models
-      - mandatemind-db:/app
     environment:
       - PYTHONUNBUFFERED=1
+      - RAZORPAY_TEST_KEY=${RAZORPAY_TEST_KEY}
+      - RAZORPAY_TEST_SECRET=${RAZORPAY_TEST_SECRET}
     command: python run_recovery.py
+
+  api:
+    build: .
+    container_name: mandatemind-api
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data:/app/data
+    environment:
+      - PYTHONUNBUFFERED=1
+      - RAZORPAY_TEST_KEY=${RAZORPAY_TEST_KEY}
+      - RAZORPAY_TEST_SECRET=${RAZORPAY_TEST_SECRET}
+    command: python -m uvicorn src.api.main:app --host 0.0.0.0 --port 8000
+    depends_on:
+      - mandatemind
 
   dashboard:
     build: .
@@ -19,10 +35,9 @@ services:
       - "8501:8501"
     volumes:
       - ./data:/app/data
-      - mandatemind-db:/app
     environment:
       - PYTHONUNBUFFERED=1
-    command: python -m streamlit run src/dashboard/dashboard.py --server.port 8501 --server.address 0.0.0.0
+    command: python -m streamlit run src/dashboard/streamlit_app.py --server.port 8501 --server.address 0.0.0.0
     depends_on:
       - mandatemind
 
@@ -34,4 +49,5 @@ services:
     command: python -m pytest tests/ -v
 
 volumes:
-  mandatemind-db:
+  data:
+  models:

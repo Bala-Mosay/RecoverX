@@ -9,6 +9,6 @@ COPY . .
 
 RUN mkdir -p models data
 
-EXPOSE 8000
+EXPOSE 8000 8501
 
 CMD ["python", "run_recovery.py"]
