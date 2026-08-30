@@ -52,7 +52,13 @@ def run_scenario(name: str, event: FailedPaymentEvent, orch: RecoveryOrchestrato
 
     for attempt in range(1, 4):
         console.print(f"[bold]Attempt {attempt}:[/]", end=" ")
-        result = orch.process_event(event)
+
+        import copy
+        event_copy = copy.deepcopy(event)
+        event_copy.subscription_id = f"{event.subscription_id}_attempt{attempt}"
+        event_copy.attempt_count = attempt
+
+        result = orch.process_event(event_copy)
 
         if result.get("outcome") == "error_fallback":
             console.print(f"[red]ERROR - {result.get('reason', '')}[/]")
@@ -61,6 +67,43 @@ def run_scenario(name: str, event: FailedPaymentEvent, orch: RecoveryOrchestrato
         if result.get("outcome") == "skipped_duplicate":
             console.print(f"[yellow]DUPLICATE SKIPPED[/]")
             continue
+
+        allowed = result.get("compliance_allowed", False)
+        action = result.get("compliance_action", "N/A")
+        reason = result.get("compliance_reason", "")
+
+        if allowed:
+            console.print(f"[green]ALLOWED[/] -> Retry scheduled (AI delay: {result.get('ai_delay_hours', 0)}h, confidence: {result.get('ai_confidence', 0):.0%})")
+        else:
+            console.print(f"[red]BLOCKED[/] -> {action}: {reason}")
+            if action == "STEP_UP_LINK":
+                console.print(f"  [cyan]Payment link: {result.get('link_url', 'N/A')}[/]")
+            elif action == "STOP":
+                console.print(f"  [red]Mandate halted - no more retries[/]")
+            break
+
+    return result
+
+
+def run_scenario_with_exhaustion(name: str, event: FailedPaymentEvent, orch: RecoveryOrchestrator):
+    console.print(f"\n[bold cyan]{'='*60}[/]")
+    console.print(f"[bold]{name}[/]")
+    console.print(f"Amount: Rs.{event.amount} | Failure: {event.failure_code.value} | Bank: {event.bank}")
+    console.print(f"History: {event.previous_success_count} successful, {event.previous_failure_count} failed")
+    console.print(f"{'='*60}\n")
+
+    result = None
+    for attempt in range(1, 4):
+        console.print(f"[bold]Attempt {attempt}:[/]", end=" ")
+
+        event_copy = copy.deepcopy(event)
+        event_copy.attempt_count = attempt
+
+        result = orch.process_event(event_copy)
+
+        if result.get("outcome") == "error_fallback":
+            console.print(f"[red]ERROR - {result.get('reason', '')}[/]")
+            break
 
         allowed = result.get("compliance_allowed", False)
         action = result.get("compliance_action", "N/A")
@@ -120,7 +163,10 @@ def run_demo():
 
     results = []
     for name, event in scenarios:
-        result = run_scenario(name, event, orch)
+        if "CUST_C" in event.customer_id:
+            result = run_scenario_with_exhaustion(name, event, orch)
+        else:
+            result = run_scenario(name, event, orch)
         results.append((name, result))
 
     try:
