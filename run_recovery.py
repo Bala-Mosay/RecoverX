@@ -128,7 +128,7 @@ class RecoveryOrchestrator:
 
     def process_event(self, event: FailedPaymentEvent) -> dict:
         self.stats["total_events"] += 1
-        event_id = f"EVT_{self.stats['total_events']:05d}"
+        event_id = f"EVT_{uuid.uuid4().hex[:8]}"
 
         idem_key = self.idempotency.generate(
             event.subscription_id, event.amount, event.failure_code.value

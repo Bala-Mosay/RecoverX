@@ -5,6 +5,8 @@ Runs 3 customer scenarios to showcase the recovery engine.
 """
 import sys
 import os
+import copy
+from datetime import datetime, timedelta
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from rich.console import Console
@@ -53,7 +55,6 @@ def run_scenario(name: str, event: FailedPaymentEvent, orch: RecoveryOrchestrato
     for attempt in range(1, 4):
         console.print(f"[bold]Attempt {attempt}:[/]", end=" ")
 
-        import copy
         event_copy = copy.deepcopy(event)
         event_copy.subscription_id = f"{event.subscription_id}_attempt{attempt}"
         event_copy.attempt_count = attempt
@@ -97,7 +98,11 @@ def run_scenario_with_exhaustion(name: str, event: FailedPaymentEvent, orch: Rec
         console.print(f"[bold]Attempt {attempt}:[/]", end=" ")
 
         event_copy = copy.deepcopy(event)
+        event_copy.subscription_id = f"{event.subscription_id}_retry{attempt}"
         event_copy.attempt_count = attempt
+
+        sub_id = event_copy.subscription_id
+        orch.retry_timestamps[sub_id] = [datetime.now() - timedelta(hours=25)] * (attempt - 1)
 
         result = orch.process_event(event_copy)
 

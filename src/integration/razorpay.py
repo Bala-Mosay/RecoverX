@@ -47,7 +47,7 @@ class RazorpayClient:
                         "timestamp": datetime.now().isoformat(),
                     }
             except Exception as e:
-                logger.error("Razorpay charge failed: %s", e)
+                logger.warning("Razorpay charge failed (using stub): %s", e)
 
         return {
             "status": "scheduled",
@@ -81,7 +81,7 @@ class RazorpayClient:
                     "mode": "test" if self.test_mode else "live",
                 }
             except Exception as e:
-                logger.error("Razorpay payment link failed: %s", e)
+                logger.warning("Razorpay payment link failed (using stub): %s", e)
 
         link_id = f"plink_test_{customer_id}_{int(datetime.now().timestamp())}"
         return {
@@ -106,7 +106,7 @@ class RazorpayClient:
                     "timestamp": datetime.now().isoformat(),
                 }
             except Exception as e:
-                logger.error("Razorpay cancel failed: %s", e)
+                logger.warning("Razorpay cancel failed (using stub): %s", e)
 
         return {
             "status": "cancelled",
