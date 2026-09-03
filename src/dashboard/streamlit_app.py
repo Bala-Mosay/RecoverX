@@ -7,695 +7,635 @@ import json
 import pandas as pd
 import streamlit as st
 from datetime import datetime
+import plotly.graph_objects as go
 
-DB_PATH = "mandatemind.db"
+DB_PATH = os.getenv("DB_PATH", "mandatemind.db")
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# SVG ICONS
+# ═══════════════════════════════════════════════════════════════════════════════
+ICONS = {
+    "events": '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>',
+    "check": '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>',
+    "block": '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>',
+    "amount": '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>',
+    "mail": '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>',
+    "template": '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>',
+    "users": '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>',
+}
 
 
-def get_connection():
-    return sqlite3.connect(DB_PATH)
+# ═══════════════════════════════════════════════════════════════════════════════
+# DATABASE HELPERS
+# ═══════════════════════════════════════════════════════════════════════════════
+def _query(sql, params=None):
+    try:
+        with sqlite3.connect(DB_PATH) as conn:
+            return pd.read_sql_query(sql, conn, params=params)
+    except Exception:
+        return pd.DataFrame()
 
 
 def load_events():
-    conn = get_connection()
-    try:
-        df = pd.read_sql_query("SELECT * FROM payment_events ORDER BY timestamp DESC", conn)
-    except Exception:
-        df = pd.DataFrame()
-    conn.close()
-    return df
+    return _query("SELECT * FROM payment_events ORDER BY timestamp DESC")
 
 
 def load_compliance():
-    conn = get_connection()
-    try:
-        df = pd.read_sql_query("SELECT * FROM compliance_decisions ORDER BY timestamp DESC", conn)
-    except Exception:
-        df = pd.DataFrame()
-    conn.close()
-    return df
+    return _query("SELECT * FROM compliance_decisions ORDER BY timestamp DESC")
 
 
 def load_retries():
-    conn = get_connection()
-    try:
-        df = pd.read_sql_query("SELECT * FROM retry_actions ORDER BY timestamp DESC", conn)
-    except Exception:
-        df = pd.DataFrame()
-    conn.close()
-    return df
+    return _query("SELECT * FROM retry_actions ORDER BY timestamp DESC")
 
 
 def load_simulations():
-    conn = get_connection()
-    try:
-        df = pd.read_sql_query("SELECT * FROM simulation_results ORDER BY timestamp DESC LIMIT 10", conn)
-    except Exception:
-        df = pd.DataFrame()
-    conn.close()
-    return df
+    return _query("SELECT * FROM simulation_results ORDER BY timestamp DESC LIMIT 10")
 
 
 def load_notifications():
-    conn = get_connection()
-    try:
-        df = pd.read_sql_query("SELECT * FROM notifications ORDER BY timestamp DESC", conn)
-    except Exception:
-        df = pd.DataFrame()
-    conn.close()
-    return df
+    return _query("SELECT * FROM notifications ORDER BY timestamp DESC")
 
 
-def render_metric_card(icon, label, value, delta=None, delta_type="positive", is_gold=False):
+# ═══════════════════════════════════════════════════════════════════════════════
+# COMPONENTS
+# ═══════════════════════════════════════════════════════════════════════════════
+def metric_card(icon_key, label, value, delta=None, delta_type="positive", gold=False):
+    icon_svg = ICONS.get(icon_key, "")
+    val_cls = "mc-val mc-gold" if gold else "mc-val"
     delta_html = ""
-    if delta is not None:
-        delta_class = "positive" if delta_type == "positive" else "negative"
+    if delta:
+        cls = "mc-delta mc-pos" if delta_type == "positive" else "mc-delta mc-neg"
         arrow = "+" if delta_type == "positive" else ""
-        delta_html = f'<div class="delta {delta_class}">{arrow}{delta}</div>'
-
-    value_class = "value gold" if is_gold else "value"
-
-    return f"""
-    <div class="metric-card">
-        <div class="icon">{icon}</div>
-        <div class="label">{label}</div>
-        <div class="{value_class}">{value}</div>
+        delta_html = f'<div class="{cls}">{arrow}{delta}</div>'
+    return f"""<div class="mc">
+        <div class="mc-icon">{icon_svg}</div>
+        <div class="mc-label">{label}</div>
+        <div class="{val_cls}">{value}</div>
         {delta_html}
-    </div>
-    """
+    </div>"""
 
 
-def render_progress_ring(percentage, size=200, stroke_width=8):
-    radius = (size - stroke_width) / 2
-    circumference = 2 * 3.14159 * radius
-    offset = circumference - (percentage / 100) * circumference
-
-    if percentage >= 80:
-        color = "#00ff88"
-    elif percentage >= 50:
-        color = "#00d68f"
-    elif percentage >= 25:
-        color = "#ffd700"
+def progress_ring(pct, size=200, stroke=8):
+    r = (size - stroke) / 2
+    c = 2 * 3.14159 * r
+    offset = c - (pct / 100) * c
+    if pct >= 80:
+        color = "#5ee0a8"
+    elif pct >= 50:
+        color = "#4a9e7a"
+    elif pct >= 25:
+        color = "#d4a843"
     else:
-        color = "#ff4757"
-
-    return f"""
-    <div style="position: relative; display: flex; justify-content: center; align-items: center; padding: 2rem;">
-        <svg class="progress-ring" width="{size}" height="{size}">
-            <defs>
-                <linearGradient id="ringGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                    <stop offset="0%" style="stop-color:#00d68f;stop-opacity:1" />
-                    <stop offset="100%" style="stop-color:#ffd700;stop-opacity:1" />
-                </linearGradient>
-            </defs>
-            <circle class="progress-ring-bg" cx="{size/2}" cy="{size/2}" r="{radius}" />
-            <circle class="progress-ring-fill" cx="{size/2}" cy="{size/2}" r="{radius}"
-                style="stroke: {color}; --progress-offset: {offset};" />
+        color = "#e05555"
+    return f"""<div class="ring-wrap">
+        <svg class="ring-svg" width="{size}" height="{size}">
+            <circle class="ring-bg" cx="{size/2}" cy="{size/2}" r="{r}" stroke-width="{stroke}"/>
+            <circle class="ring-fill" cx="{size/2}" cy="{size/2}" r="{r}" stroke-width="{stroke}"
+                stroke="{color}" stroke-dasharray="{c}" stroke-dashoffset="{offset}"/>
         </svg>
-        <div style="position: absolute; text-align: center;">
-            <div style="font-size: 2.5rem; font-weight: 800; color: {color};">{percentage:.1f}%</div>
-            <div style="font-size: 0.75rem; color: #7a9a7a;">RECOVERY RATE</div>
+        <div class="ring-center">
+            <div class="ring-pct" style="color:{color}">{pct:.1f}%</div>
+            <div class="ring-label">RECOVERY RATE</div>
         </div>
-    </div>
-    """
+    </div>"""
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# CSS
+# ═══════════════════════════════════════════════════════════════════════════════
+STYLE = """<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+* { box-sizing: border-box; }
+
+.stApp {
+    background: #0c1310 !important;
+    font-family: 'Inter', sans-serif !important;
+    color: #c8d8cc !important;
+}
+
+/* ── Hero ── */
+.hero {
+    background: #111c16;
+    border-left: 3px solid #5ee0a8;
+    border-radius: 6px;
+    padding: 1.5rem 2rem;
+    margin-bottom: 2rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+.hero h1 {
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: #e0ece4 !important;
+    margin: 0;
+    letter-spacing: -0.02em;
+}
+.hero p {
+    color: #7a9a7a;
+    font-size: 0.85rem;
+    margin: 0.25rem 0 0 0;
+}
+.hero-badge {
+    display: inline-block;
+    background: #1a2e22;
+    border: 1px solid #243d2b;
+    border-radius: 4px;
+    padding: 3px 10px;
+    font-size: 0.7rem;
+    font-weight: 500;
+    color: #5ee0a8;
+    margin-top: 0.5rem;
+}
+.hero-status {
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: #5ee0a8;
+    text-align: right;
+}
+.hero-status span {
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    background: #5ee0a8;
+    border-radius: 50%;
+    margin-right: 6px;
+}
+
+/* ── Metric Cards ── */
+.mc {
+    background: #111c16;
+    border: 1px solid #1a2e22;
+    border-radius: 8px;
+    padding: 1.25rem;
+    transition: border-color 0.2s ease;
+}
+.mc:hover {
+    border-color: #2a4a35;
+}
+.mc-icon {
+    color: #5ee0a8;
+    margin-bottom: 0.75rem;
+}
+.mc-label {
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #6b8a6b;
+    margin-bottom: 0.25rem;
+}
+.mc-val {
+    font-size: 1.8rem;
+    font-weight: 700;
+    color: #e0ece4;
+    line-height: 1;
+}
+.mc-gold { color: #d4a843; }
+.mc-delta {
+    font-size: 0.75rem;
+    margin-top: 0.5rem;
+}
+.mc-pos { color: #5ee0a8; }
+.mc-neg { color: #e05555; }
+
+/* ── Section Headers ── */
+.sec {
+    font-size: 1rem;
+    font-weight: 600;
+    color: #c8d8cc;
+    margin: 2rem 0 1rem 0;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid #1a2e22;
+}
+
+/* ── Panels ── */
+.panel {
+    background: #111c16;
+    border: 1px solid #1a2e22;
+    border-radius: 8px;
+    padding: 1.25rem;
+    margin-bottom: 1.25rem;
+}
+
+/* ── Progress Ring ── */
+.ring-wrap {
+    position: relative;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 1.5rem;
+}
+.ring-svg { transform: rotate(-90deg); }
+.ring-bg { fill: none; stroke: #1a2e22; }
+.ring-fill {
+    fill: none;
+    stroke-linecap: round;
+    transition: stroke-dashoffset 1s ease-out;
+}
+.ring-center {
+    position: absolute;
+    text-align: center;
+}
+.ring-pct {
+    font-size: 2.2rem;
+    font-weight: 700;
+}
+.ring-label {
+    font-size: 0.65rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #6b8a6b;
+}
+
+/* ── Badges ── */
+.badge {
+    display: inline-block;
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-size: 0.65rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+.badge-ok { background: #1a2e22; color: #5ee0a8; }
+.badge-err { background: #2e1a1a; color: #e05555; }
+.badge-warn { background: #2e2a1a; color: #d4a843; }
+.badge-info { background: #1a2a2e; color: #5ea8d4; }
+
+/* ── Phone Mockup ── */
+.phone {
+    width: 320px;
+    max-width: 100%;
+    margin: 0 auto;
+    background: #1a1a24;
+    border-radius: 28px;
+    padding: 10px;
+    border: 1px solid #2a2a36;
+}
+.phone-inner {
+    background: #0e0e16;
+    border-radius: 22px;
+    padding: 14px;
+    min-height: 380px;
+}
+.phone-top {
+    text-align: center;
+    padding: 6px 0 14px 0;
+    border-bottom: 1px solid #1a1a24;
+    margin-bottom: 10px;
+}
+.phone-top strong {
+    font-size: 0.85rem;
+    color: #5ee0a8;
+}
+.phone-top small {
+    display: block;
+    font-size: 0.6rem;
+    color: #6b6b7a;
+    margin-top: 2px;
+}
+.wa-msg {
+    background: #1a2420;
+    border: 1px solid #243d2b;
+    border-radius: 10px 10px 10px 2px;
+    padding: 8px 12px;
+    margin-bottom: 6px;
+    font-size: 0.7rem;
+    color: #c8d8cc;
+    line-height: 1.4;
+}
+.wa-msg .wa-time {
+    font-size: 0.55rem;
+    color: #6b8a6b;
+    text-align: right;
+    margin-top: 3px;
+}
+
+/* ── Skeleton ── */
+.skel {
+    background: linear-gradient(90deg, #111c16 25%, #162218 50%, #111c16 75%);
+    background-size: 200% 100%;
+    animation: skel-pulse 1.5s ease-in-out infinite;
+    border-radius: 8px;
+}
+@keyframes skel-pulse {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}
+
+/* ── Streamlit Overrides ── */
+[data-testid="stMetric"] {
+    background: #111c16 !important;
+    border: 1px solid #1a2e22 !important;
+    border-radius: 8px !important;
+    padding: 1rem !important;
+}
+[data-testid="stMetricValue"] { color: #e0ece4 !important; font-weight: 600 !important; }
+[data-testid="stMetricLabel"] { color: #6b8a6b !important; text-transform: uppercase !important; font-size: 0.7rem !important; letter-spacing: 0.05em !important; }
+[data-testid="stTab"] {
+    background: transparent !important;
+    color: #6b8a6b !important;
+    border-radius: 4px !important;
+}
+[data-testid="stTab"][aria-selected="true"] {
+    background: #1a2e22 !important;
+    color: #5ee0a8 !important;
+}
+[data-testid="stDataFrame"] {
+    border: 1px solid #1a2e22 !important;
+    border-radius: 8px !important;
+}
+.stSelectbox > div > div,
+.stTextInput > div > div > input,
+.stNumberInput > div > div > input {
+    background: #111c16 !important;
+    border-color: #1a2e22 !important;
+    color: #c8d8cc !important;
+}
+.stSelectbox label,
+.stNumberInput label,
+.stTextInput label {
+    color: #6b8a6b !important;
+}
+.stExpander {
+    background: #111c16 !important;
+    border: 1px solid #1a2e22 !important;
+    border-radius: 8px !important;
+}
+h1, h2, h3, h4, h5, h6 { color: #e0ece4 !important; }
+.stMarkdown { color: #c8d8cc; }
+.stSpinner > div { color: #5ee0a8 !important; }
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar { width: 5px; }
+::-webkit-scrollbar-track { background: #0c1310; }
+::-webkit-scrollbar-thumb { background: #2a4a35; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #3a6a4a; }
+
+/* ── Responsive ── */
+@media (max-width: 768px) {
+    .hero { flex-direction: column; gap: 1rem; text-align: center; }
+    .hero-status { text-align: center; }
+    .mc-val { font-size: 1.4rem; }
+    .ring-pct { font-size: 1.6rem; }
+    .phone { width: 100%; }
+}
+</style>"""
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # MAIN APP
 # ═══════════════════════════════════════════════════════════════════════════════
 def main():
-    st.set_page_config(
-        page_title="MandateMind",
-        page_icon="\U0001f6e1",
-        layout="wide",
-        initial_sidebar_state="collapsed",
-    )
+    st.set_page_config(page_title="MandateMind", page_icon=" ", layout="wide", initial_sidebar_state="collapsed")
+    st.markdown(STYLE, unsafe_allow_html=True)
 
-    st.markdown(GLOBAL_CSS, unsafe_allow_html=True)
-
-    # Hero Header
-    st.markdown("""
-    <div class="hero-header">
-        <div style="display: flex; justify-content: space-between; align-items: center; position: relative; z-index: 1;">
-            <div>
-                <h1 class="hero-title">MandateMind</h1>
-                <p class="hero-subtitle">AI-Powered Payment Recovery Engine with RBI Compliance</p>
-                <div class="hero-badge">
-                    <span class="dot"></span>
-                    <span>Razorpay AI Buildathon 2026</span>
-                </div>
-            </div>
-            <div style="text-align: right;">
-                <div style="font-size: 0.7rem; color: #7a9a7a; text-transform: uppercase; letter-spacing: 0.1em;">Status</div>
-                <div style="font-size: 0.9rem; color: #00d68f; font-weight: 600;">&#9679; SYSTEM ONLINE</div>
-            </div>
+    # Hero
+    st.markdown("""<div class="hero">
+        <div>
+            <h1>MandateMind</h1>
+            <p>AI-Powered Payment Recovery Engine with RBI Compliance</p>
+            <div class="hero-badge">Razorpay AI Buildathon 2026</div>
         </div>
-    </div>
-    """, unsafe_allow_html=True)
+        <div class="hero-status"><span></span> SYSTEM ONLINE</div>
+    </div>""", unsafe_allow_html=True)
 
-    tab1, tab2, tab3, tab4, tab5 = st.tabs([
-        "  Overview",
-        "  Events",
-        "  Compliance",
-        "  Notifications",
-        "  Simulations"
-    ])
-
-    with tab1:
-        render_overview()
-    with tab2:
-        render_events()
-    with tab3:
-        render_compliance()
-    with tab4:
-        render_notifications()
-    with tab5:
-        render_simulations()
+    tabs = st.tabs(["  Overview", "  Events", "  Compliance", "  Notifications", "  Simulations"])
+    with tabs[0]: tab_overview()
+    with tabs[1]: tab_events()
+    with tabs[2]: tab_compliance()
+    with tabs[3]: tab_notifications()
+    with tabs[4]: tab_simulations()
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# OVERVIEW TAB
+# OVERVIEW
 # ═══════════════════════════════════════════════════════════════════════════════
-def render_overview():
-    events = load_events()
-    compliance = load_compliance()
-    retries = load_retries()
+def tab_overview():
+    with st.spinner("Loading..."):
+        events = load_events()
+        compliance = load_compliance()
+        retries = load_retries()
 
-    total_events = len(events)
-    allowed_count = len(compliance[compliance["allowed"] == True]) if not compliance.empty else 0
-    blocked_count = len(compliance[compliance["allowed"] == False]) if not compliance.empty else 0
-    recovery_rate = round((allowed_count / total_events * 100), 1) if total_events > 0 else 0
-    total_amount = events["amount"].sum() if not events.empty else 0
+    n_events = len(events)
+    n_allowed = len(compliance[compliance["allowed"] == True]) if not compliance.empty else 0
+    n_blocked = len(compliance[compliance["allowed"] == False]) if not compliance.empty else 0
+    rate = round((n_allowed / n_events * 100), 1) if n_events > 0 else 0
+    total_amt = events["amount"].sum() if not events.empty else 0
 
-    cols = st.columns(4)
-    with cols[0]:
-        st.markdown(render_metric_card("\U0001f4e5", "Total Events", f"{total_events:,}", "processed"), unsafe_allow_html=True)
-    with cols[1]:
-        st.markdown(render_metric_card("\u2705", "Compliance Allowed", f"{allowed_count:,}", f"{blocked_count} blocked"), unsafe_allow_html=True)
-    with cols[2]:
-        st.markdown(render_metric_card("\U0001f6ab", "Blocked", f"{blocked_count:,}", "violations prevented", delta_type="negative"), unsafe_allow_html=True)
-    with cols[3]:
-        st.markdown(render_metric_card("\U0001f4b0", "Total Amount", f"Rs.{total_amount:,.0f}", "at risk", is_gold=True), unsafe_allow_html=True)
+    c1, c2, c3, c4 = st.columns(4)
+    with c1: st.markdown(metric_card("events", "Total Events", f"{n_events:,}", "processed"), unsafe_allow_html=True)
+    with c2: st.markdown(metric_card("check", "Allowed", f"{n_allowed:,}", f"{n_blocked} blocked"), unsafe_allow_html=True)
+    with c3: st.markdown(metric_card("block", "Blocked", f"{n_blocked:,}", "violations stopped", "negative"), unsafe_allow_html=True)
+    with c4: st.markdown(metric_card("amount", "Total Amount", f"Rs.{total_amt:,.0f}", "at risk", gold=True), unsafe_allow_html=True)
 
-    col_ring, col_charts = st.columns([1, 2])
+    left, right = st.columns([1, 2])
+    with left:
+        st.markdown('<div class="sec">Recovery Rate</div>', unsafe_allow_html=True)
+        st.markdown('<div class="panel">', unsafe_allow_html=True)
+        st.markdown(progress_ring(rate), unsafe_allow_html=True)
+        st.markdown('</div>', unsafe_allow_html=True)
 
-    with col_ring:
-        st.markdown('<div class="section-header">  Recovery Rate</div>', unsafe_allow_html=True)
-        st.markdown('<div class="glass-panel">', unsafe_allow_html=True)
-        st.markdown(render_progress_ring(recovery_rate), unsafe_allow_html=True)
-        st.markdown("</div>", unsafe_allow_html=True)
-
-    with col_charts:
-        st.markdown('<div class="section-header">  Compliance Breakdown</div>', unsafe_allow_html=True)
+    with right:
+        st.markdown('<div class="sec">Compliance Breakdown</div>', unsafe_allow_html=True)
         if not compliance.empty:
-            import plotly.graph_objects as go
-            action_counts = compliance["action"].value_counts()
-            fig = go.Figure(data=[
-                go.Bar(
-                    x=action_counts.index,
-                    y=action_counts.values,
-                    marker=dict(color=["#00d68f", "#ffd700", "#ff4757"][:len(action_counts)], line=dict(width=0)),
-                    text=action_counts.values,
-                    textposition="auto",
-                )
-            ])
-            fig.update_layout(
-                paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
-                font=dict(color="#e8f0e8"), margin=dict(l=0, r=0, t=0, b=0),
-                height=300, xaxis=dict(showgrid=False),
-                yaxis=dict(showgrid=True, gridcolor="rgba(0,214,143,0.1)"),
-            )
+            vc = compliance["action"].value_counts()
+            fig = go.Figure(go.Bar(x=vc.index, y=vc.values, marker_color=["#5ee0a8", "#d4a843", "#e05555"][:len(vc)], text=vc.values, textposition="auto"))
+            fig.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font=dict(color="#c8d8cc", size=12), margin=dict(l=0, r=0, t=0, b=0), height=280, xaxis=dict(showgrid=False), yaxis=dict(showgrid=True, gridcolor="#1a2e22"))
             st.plotly_chart(fig, use_container_width=True)
         else:
             st.info("No compliance data yet.")
 
-    col_left, col_right = st.columns(2)
-
-    with col_left:
-        st.markdown('<div class="section-header">  Retry Actions</div>', unsafe_allow_html=True)
-        st.markdown('<div class="glass-panel">', unsafe_allow_html=True)
+    left2, right2 = st.columns(2)
+    with left2:
+        st.markdown('<div class="sec">Retry Actions</div>', unsafe_allow_html=True)
+        st.markdown('<div class="panel">', unsafe_allow_html=True)
         if not retries.empty:
-            import plotly.graph_objects as go
-            action_counts = retries["action_taken"].value_counts()
-            fig = go.Figure(data=[
-                go.Pie(labels=action_counts.index, values=action_counts.values, hole=0.6,
-                       marker=dict(colors=["#00d68f", "#ffd700", "#ff4757", "#00ff88"]),
-                       textfont=dict(color="#e8f0e8"))
-            ])
-            fig.update_layout(
-                paper_bgcolor="rgba(0,0,0,0)", font=dict(color="#e8f0e8"),
-                showlegend=True, legend=dict(font=dict(color="#e8f0e8")),
-                margin=dict(l=0, r=0, t=0, b=0), height=300,
-            )
+            vc = retries["action_taken"].value_counts()
+            fig = go.Figure(go.Pie(labels=vc.index, values=vc.values, hole=0.55, marker=dict(colors=["#5ee0a8", "#d4a843", "#e05555", "#5ea8d4"]), textfont=dict(color="#c8d8cc")))
+            fig.update_layout(paper_bgcolor="rgba(0,0,0,0)", font=dict(color="#c8d8cc"), showlegend=True, legend=dict(font=dict(color="#c8d8cc", size=11)), margin=dict(l=0, r=0, t=0, b=0), height=280)
             st.plotly_chart(fig, use_container_width=True)
         else:
             st.info("No retry data yet.")
-        st.markdown("</div>", unsafe_allow_html=True)
+        st.markdown('</div>', unsafe_allow_html=True)
 
-    with col_right:
-        st.markdown('<div class="section-header">  Amount Distribution</div>', unsafe_allow_html=True)
-        st.markdown('<div class="glass-panel">', unsafe_allow_html=True)
+    with right2:
+        st.markdown('<div class="sec">Amount Distribution</div>', unsafe_allow_html=True)
+        st.markdown('<div class="panel">', unsafe_allow_html=True)
         if not events.empty:
-            import plotly.graph_objects as go
-            fig = go.Figure(data=[
-                go.Histogram(x=events["amount"], nbinsx=30,
-                             marker=dict(color="rgba(0,214,143,0.6)", line=dict(width=1, color="#00d68f")))
-            ])
-            fig.update_layout(
-                paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
-                font=dict(color="#e8f0e8"), margin=dict(l=0, r=0, t=0, b=0),
-                height=300, xaxis=dict(title="Amount (paise)", showgrid=False),
-                yaxis=dict(title="Count", showgrid=True, gridcolor="rgba(0,214,143,0.1)"),
-            )
+            fig = go.Figure(go.Histogram(x=events["amount"], nbinsx=25, marker_color="#5ee0a8", marker_line=dict(width=1, color="#3a6a4a")))
+            fig.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font=dict(color="#c8d8cc"), margin=dict(l=0, r=0, t=0, b=0), height=280, xaxis=dict(title="Amount (paise)", showgrid=False), yaxis=dict(title="Count", showgrid=True, gridcolor="#1a2e22"))
             st.plotly_chart(fig, use_container_width=True)
         else:
             st.info("No event data yet.")
-        st.markdown("</div>", unsafe_allow_html=True)
+        st.markdown('</div>', unsafe_allow_html=True)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# EVENTS TAB
+# EVENTS
 # ═══════════════════════════════════════════════════════════════════════════════
-def render_events():
-    st.markdown('<div class="section-header">  Payment Events</div>', unsafe_allow_html=True)
-    events = load_events()
+def tab_events():
+    st.markdown('<div class="sec">Payment Events</div>', unsafe_allow_html=True)
+    with st.spinner("Loading events..."):
+        events = load_events()
     if events.empty:
-        st.markdown('<div class="glass-panel"><p style="color: #7a9a7a;">No events yet. Run: <code>python run_recovery.py</code></p></div>', unsafe_allow_html=True)
+        st.info("No events yet. Run: `python run_recovery.py`")
         return
 
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        failure_filter = st.selectbox("Filter by failure code", ["All"] + list(events["failure_code"].unique()))
-    with col2:
-        min_amount = st.number_input("Min amount", value=0, step=100)
-    with col3:
-        max_amount = st.number_input("Max amount", value=int(events["amount"].max()) + 1000, step=100)
+    c1, c2, c3 = st.columns(3)
+    with c1:
+        fail_filter = st.selectbox("Failure code", ["All"] + list(events["failure_code"].unique()))
+    with c2:
+        min_amt = st.number_input("Min amount", value=0, step=100)
+    with c3:
+        max_amt = st.number_input("Max amount", value=int(events["amount"].max()) + 1000, step=100)
 
-    filtered = events.copy()
-    if failure_filter != "All":
-        filtered = filtered[filtered["failure_code"] == failure_filter]
-    filtered = filtered[(filtered["amount"] >= min_amount) & (filtered["amount"] <= max_amount)]
+    df = events.copy()
+    if fail_filter != "All":
+        df = df[df["failure_code"] == fail_filter]
+    df = df[(df["amount"] >= min_amt) & (df["amount"] <= max_amt)]
 
-    st.markdown(f'<div style="color: #7a9a7a; font-size: 0.85rem;">Showing {len(filtered)} of {len(events)} events</div>', unsafe_allow_html=True)
-    st.markdown('<div class="glass-panel">', unsafe_allow_html=True)
-    st.dataframe(filtered[["id", "subscription_id", "customer_id", "amount", "failure_code", "merchant_category", "timestamp"]].head(100), use_container_width=True)
-    st.markdown("</div>", unsafe_allow_html=True)
+    st.caption(f"Showing {len(df)} of {len(events)} events")
+    st.markdown('<div class="panel">', unsafe_allow_html=True)
+    st.dataframe(df[["id", "subscription_id", "customer_id", "amount", "failure_code", "merchant_category", "timestamp"]].head(100), use_container_width=True)
+    st.markdown('</div>', unsafe_allow_html=True)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# COMPLIANCE TAB
+# COMPLIANCE
 # ═══════════════════════════════════════════════════════════════════════════════
-def render_compliance():
-    st.markdown('<div class="section-header">  Compliance Decisions</div>', unsafe_allow_html=True)
-    compliance = load_compliance()
+def tab_compliance():
+    st.markdown('<div class="sec">Compliance Decisions</div>', unsafe_allow_html=True)
+    with st.spinner("Loading compliance data..."):
+        compliance = load_compliance()
     if compliance.empty:
-        st.markdown('<div class="glass-panel"><p style="color: #7a9a7a;">No compliance decisions yet.</p></div>', unsafe_allow_html=True)
+        st.info("No compliance decisions yet.")
         return
 
-    import plotly.graph_objects as go
-
-    col1, col2 = st.columns(2)
-    with col1:
-        st.markdown('<div class="glass-panel">', unsafe_allow_html=True)
+    left, right = st.columns(2)
+    with left:
+        st.markdown('<div class="panel">', unsafe_allow_html=True)
         allowed = len(compliance[compliance["allowed"] == True])
         blocked = len(compliance[compliance["allowed"] == False])
-        fig = go.Figure(data=[go.Bar(x=["Allowed", "Blocked"], y=[allowed, blocked],
-                                     marker=dict(color=["#00d68f", "#ff4757"]),
-                                     text=[allowed, blocked], textposition="auto", textfont=dict(color="#e8f0e8"))])
-        fig.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
-                          font=dict(color="#e8f0e8"), margin=dict(l=0, r=0, t=10, b=0),
-                          height=300, xaxis=dict(showgrid=False), yaxis=dict(showgrid=True, gridcolor="rgba(0,214,143,0.1)"))
+        fig = go.Figure(go.Bar(x=["Allowed", "Blocked"], y=[allowed, blocked], marker_color=["#5ee0a8", "#e05555"], text=[allowed, blocked], textposition="auto", textfont=dict(color="#c8d8cc")))
+        fig.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font=dict(color="#c8d8cc"), margin=dict(l=0, r=0, t=10, b=0), height=280, xaxis=dict(showgrid=False), yaxis=dict(showgrid=True, gridcolor="#1a2e22"))
         st.plotly_chart(fig, use_container_width=True)
-        st.markdown("</div>", unsafe_allow_html=True)
+        st.markdown('</div>', unsafe_allow_html=True)
 
-    with col2:
-        st.markdown('<div class="glass-panel">', unsafe_allow_html=True)
+    with right:
+        st.markdown('<div class="panel">', unsafe_allow_html=True)
         blocked_df = compliance[compliance["allowed"] == False]
         if not blocked_df.empty:
-            reason_counts = blocked_df["reason"].value_counts().head(5)
-            fig = go.Figure(data=[go.Bar(y=reason_counts.index, x=reason_counts.values, orientation="h",
-                                         marker=dict(color="#ff4757"), text=reason_counts.values, textposition="auto", textfont=dict(color="#e8f0e8"))])
-            fig.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
-                              font=dict(color="#e8f0e8"), margin=dict(l=0, r=0, t=10, b=0),
-                              height=300, xaxis=dict(showgrid=True, gridcolor="rgba(0,214,143,0.1)"), yaxis=dict(showgrid=False))
+            rc = blocked_df["reason"].value_counts().head(5)
+            fig = go.Figure(go.Bar(y=rc.index, x=rc.values, orientation="h", marker_color="#e05555", text=rc.values, textposition="auto", textfont=dict(color="#c8d8cc")))
+            fig.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font=dict(color="#c8d8cc"), margin=dict(l=0, r=0, t=10, b=0), height=280, xaxis=dict(showgrid=True, gridcolor="#1a2e22"), yaxis=dict(showgrid=False))
             st.plotly_chart(fig, use_container_width=True)
         else:
             st.info("No blocks recorded.")
-        st.markdown("</div>", unsafe_allow_html=True)
+        st.markdown('</div>', unsafe_allow_html=True)
 
-    st.markdown('<div class="section-header">  Recent Decisions</div>', unsafe_allow_html=True)
-    st.markdown('<div class="glass-panel">', unsafe_allow_html=True)
+    st.markdown('<div class="sec">Recent Decisions</div>', unsafe_allow_html=True)
+    st.markdown('<div class="panel">', unsafe_allow_html=True)
     st.dataframe(compliance[["event_id", "subscription_id", "allowed", "action", "reason", "timestamp"]].head(50), use_container_width=True)
-    st.markdown("</div>", unsafe_allow_html=True)
+    st.markdown('</div>', unsafe_allow_html=True)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# NOTIFICATIONS TAB
+# NOTIFICATIONS
 # ═══════════════════════════════════════════════════════════════════════════════
-def render_notifications():
-    st.markdown('<div class="section-header">  WhatsApp Notifications</div>', unsafe_allow_html=True)
-    notifications = load_notifications()
+def tab_notifications():
+    st.markdown('<div class="sec">WhatsApp Notifications</div>', unsafe_allow_html=True)
+    with st.spinner("Loading notifications..."):
+        notifications = load_notifications()
     if notifications.empty:
-        st.markdown('<div class="glass-panel"><p style="color: #7a9a7a;">No notifications yet. Run: <code>python run_whatsapp_sim.py</code></p></div>', unsafe_allow_html=True)
+        st.info("No notifications yet. Run: `python run_whatsapp_sim.py`")
         return
 
-    cols = st.columns(3)
-    with cols[0]:
-        st.markdown(render_metric_card("\U0001f4e9", "Total Sent", f"{len(notifications):,}"), unsafe_allow_html=True)
-    with cols[1]:
-        templates = notifications["template"].value_counts()
-        st.markdown(render_metric_card("\U0001f4dd", "Template Types", f"{len(templates):,}"), unsafe_allow_html=True)
-    with cols[2]:
-        st.markdown(render_metric_card("\U0001f464", "Recipients", f"{notifications['recipient'].nunique():,}"), unsafe_allow_html=True)
+    c1, c2, c3 = st.columns(3)
+    with c1: st.markdown(metric_card("mail", "Total Sent", f"{len(notifications):,}"), unsafe_allow_html=True)
+    with c2: st.markdown(metric_card("template", "Templates", f"{notifications['template'].nunique():,}"), unsafe_allow_html=True)
+    with c3: st.markdown(metric_card("users", "Recipients", f"{notifications['recipient'].nunique():,}"), unsafe_allow_html=True)
 
     col_phone, col_chart = st.columns([1, 2])
-
     with col_phone:
-        st.markdown('<div class="section-header">  Message Preview</div>', unsafe_allow_html=True)
+        st.markdown('<div class="sec">Message Preview</div>', unsafe_allow_html=True)
         latest = notifications.head(3)
-        msgs_html = ""
+        msgs = ""
         for _, row in latest.iterrows():
             try:
-                payload = json.loads(row["payload"]) if row["payload"] else {}
+                body = json.loads(row["payload"]).get("body", "") if row["payload"] else ""
             except Exception:
-                payload = {}
-            body = payload.get("body", "No content")
-            if len(body) > 120:
-                body = body[:120] + "..."
-            body_escaped = body.replace("\n", "<br>").replace("<", "&lt;").replace(">", "&gt;")
+                body = ""
+            if len(body) > 100:
+                body = body[:100] + "..."
+            body = body.replace("\n", "<br>").replace("<", "&lt;").replace(">", "&gt;")
             ts = str(row["timestamp"])[:16]
-            msgs_html += f'<div class="whatsapp-msg">{body_escaped}<div class="time">{ts}</div></div>'
-
-        st.markdown(f"""
-        <div class="phone-mockup">
-            <div class="phone-screen">
-                <div class="phone-header">
-                    <div class="app-name">MandateMind</div>
-                    <div style="font-size: 0.65rem; color: #7a9a7a;">WhatsApp Business</div>
-                </div>
-                {msgs_html}
+            msgs += f'<div class="wa-msg">{body}<div class="wa-time">{ts}</div></div>'
+        st.markdown(f"""<div class="phone">
+            <div class="phone-inner">
+                <div class="phone-top"><strong>MandateMind</strong><small>WhatsApp Business</small></div>
+                {msgs}
             </div>
-        </div>
-        """, unsafe_allow_html=True)
+        </div>""", unsafe_allow_html=True)
 
     with col_chart:
-        st.markdown('<div class="section-header">  Notification Analytics</div>', unsafe_allow_html=True)
-        st.markdown('<div class="glass-panel">', unsafe_allow_html=True)
-        if not notifications.empty:
-            import plotly.graph_objects as go
-            template_counts = notifications["template"].value_counts()
-            fig = go.Figure(data=[go.Bar(x=template_counts.index, y=template_counts.values,
-                                         marker=dict(color=["#00d68f", "#ffd700", "#ff4757", "#00ff88"][:len(template_counts)]),
-                                         text=template_counts.values, textposition="auto", textfont=dict(color="#e8f0e8"))])
-            fig.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
-                              font=dict(color="#e8f0e8"), margin=dict(l=0, r=0, t=0, b=0),
-                              height=350, xaxis=dict(showgrid=False), yaxis=dict(showgrid=True, gridcolor="rgba(0,214,143,0.1)"))
-            st.plotly_chart(fig, use_container_width=True)
-        st.markdown("</div>", unsafe_allow_html=True)
+        st.markdown('<div class="sec">By Template</div>', unsafe_allow_html=True)
+        st.markdown('<div class="panel">', unsafe_allow_html=True)
+        tc = notifications["template"].value_counts()
+        fig = go.Figure(go.Bar(x=tc.index, y=tc.values, marker_color=["#5ee0a8", "#d4a843", "#e05555", "#5ea8d4"][:len(tc)], text=tc.values, textposition="auto", textfont=dict(color="#c8d8cc")))
+        fig.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font=dict(color="#c8d8cc"), margin=dict(l=0, r=0, t=0, b=0), height=320, xaxis=dict(showgrid=False), yaxis=dict(showgrid=True, gridcolor="#1a2e22"))
+        st.plotly_chart(fig, use_container_width=True)
+        st.markdown('</div>', unsafe_allow_html=True)
 
-    st.markdown('<div class="section-header">  Notification History</div>', unsafe_allow_html=True)
-    template_filter = st.selectbox("Filter by template", ["All"] + list(notifications["template"].unique()))
-    filtered = notifications.copy()
-    if template_filter != "All":
-        filtered = filtered[filtered["template"] == template_filter]
+    st.markdown('<div class="sec">History</div>', unsafe_allow_html=True)
+    tpl_filter = st.selectbox("Filter template", ["All"] + list(notifications["template"].unique()))
+    filtered = notifications if tpl_filter == "All" else notifications[notifications["template"] == tpl_filter]
 
     for _, row in filtered.head(10).iterrows():
         try:
-            payload = json.loads(row["payload"]) if row["payload"] else {}
+            body = json.loads(row["payload"]).get("body", "") if row["payload"] else ""
         except Exception:
-            payload = {}
-        body = payload.get("body", "No content")
-        template = row["template"]
-        recipient = row["recipient"]
-        badge_class = {"pre_debit_notice": "info", "retry_notification": "success",
-                       "stepup_link": "warning", "mandate_exhausted": "danger"}.get(template, "info")
-        with st.expander(f"  [{template}] {recipient}"):
-            st.markdown(f'<span class="badge {badge_class}">{template}</span>', unsafe_allow_html=True)
+            body = ""
+        tpl = row["template"]
+        badge_cls = {"pre_debit_notice": "badge-info", "retry_notification": "badge-ok", "stepup_link": "badge-warn", "mandate_exhausted": "badge-err"}.get(tpl, "badge-info")
+        with st.expander(f"[{tpl}] {row['recipient']}"):
+            st.markdown(f'<span class="badge {badge_cls}">{tpl}</span>', unsafe_allow_html=True)
             st.code(body, language=None)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# SIMULATIONS TAB
+# SIMULATIONS
 # ═══════════════════════════════════════════════════════════════════════════════
-def render_simulations():
-    st.markdown('<div class="section-header">  Simulation Results</div>', unsafe_allow_html=True)
-    simulations = load_simulations()
+def tab_simulations():
+    st.markdown('<div class="sec">Simulation Results</div>', unsafe_allow_html=True)
+    with st.spinner("Loading simulations..."):
+        simulations = load_simulations()
     if simulations.empty:
-        st.markdown('<div class="glass-panel"><p style="color: #7a9a7a;">No simulation results yet. Run: <code>python run_recovery.py</code></p></div>', unsafe_allow_html=True)
+        st.info("No simulation results yet. Run: `python run_recovery.py`")
         return
 
-    st.markdown('<div class="glass-panel">', unsafe_allow_html=True)
+    st.markdown('<div class="panel">', unsafe_allow_html=True)
     st.dataframe(simulations, use_container_width=True)
-    st.markdown("</div>", unsafe_allow_html=True)
+    st.markdown('</div>', unsafe_allow_html=True)
 
     if len(simulations) > 1:
-        st.markdown('<div class="section-header">  Recovery Rate Over Time</div>', unsafe_allow_html=True)
-        st.markdown('<div class="glass-panel">', unsafe_allow_html=True)
-        import plotly.graph_objects as go
+        st.markdown('<div class="sec">Recovery Rate Over Time</div>', unsafe_allow_html=True)
+        st.markdown('<div class="panel">', unsafe_allow_html=True)
         chart_data = simulations[["timestamp", "recovery_rate"]].copy()
         chart_data["timestamp"] = pd.to_datetime(chart_data["timestamp"])
         chart_data = chart_data.sort_values("timestamp")
-        fig = go.Figure(data=[go.Scatter(x=chart_data["timestamp"], y=chart_data["recovery_rate"],
-                                         mode="lines+markers", line=dict(color="#00d68f", width=3, shape="spline"),
-                                         marker=dict(size=8, color="#ffd700", line=dict(width=2, color="#00d68f")),
-                                         fill="tozeroy", fillcolor="rgba(0,214,143,0.1)")])
-        fig.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
-                          font=dict(color="#e8f0e8"), margin=dict(l=0, r=0, t=0, b=0),
-                          height=300, xaxis=dict(showgrid=False),
-                          yaxis=dict(title="Recovery %", showgrid=True, gridcolor="rgba(0,214,143,0.1)"))
+        fig = go.Figure(go.Scatter(
+            x=chart_data["timestamp"], y=chart_data["recovery_rate"],
+            mode="lines+markers", line=dict(color="#5ee0a8", width=2, shape="spline"),
+            marker=dict(size=6, color="#d4a843", line=dict(width=1, color="#5ee0a8")),
+            fill="tozeroy", fillcolor="rgba(94,224,168,0.08)"
+        ))
+        fig.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font=dict(color="#c8d8cc"), margin=dict(l=0, r=0, t=0, b=0), height=280, xaxis=dict(showgrid=False), yaxis=dict(title="Recovery %", showgrid=True, gridcolor="#1a2e22"))
         st.plotly_chart(fig, use_container_width=True)
-        st.markdown("</div>", unsafe_allow_html=True)
-
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# GLOBAL CSS
-# ═══════════════════════════════════════════════════════════════════════════════
-GLOBAL_CSS = """
-<style>
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
-
-:root {
-    --bg-dark: #0a1a0f;
-    --bg-card: rgba(0, 214, 143, 0.06);
-    --emerald: #00d68f;
-    --emerald-dim: rgba(0, 214, 143, 0.3);
-    --gold: #ffd700;
-    --text: #e8f0e8;
-    --text-dim: #7a9a7a;
-    --danger: #ff4757;
-    --success: #00ff88;
-    --warning: #ffa502;
-}
-
-.stApp {
-    background: linear-gradient(135deg, #0a1a0f 0%, #0d2818 50%, #0a1a0f 100%) !important;
-    font-family: 'Inter', sans-serif !important;
-}
-
-.particles {
-    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-    pointer-events: none; z-index: 0; overflow: hidden;
-}
-.particle {
-    position: absolute; width: 4px; height: 4px;
-    background: #00d68f; border-radius: 50%; opacity: 0.15;
-    animation: float 15s infinite ease-in-out;
-}
-.particle:nth-child(1) { left: 10%; animation-delay: 0s; animation-duration: 12s; }
-.particle:nth-child(2) { left: 25%; animation-delay: 2s; animation-duration: 18s; }
-.particle:nth-child(3) { left: 40%; animation-delay: 4s; animation-duration: 14s; }
-.particle:nth-child(4) { left: 55%; animation-delay: 1s; animation-duration: 20s; }
-.particle:nth-child(5) { left: 70%; animation-delay: 3s; animation-duration: 16s; }
-.particle:nth-child(6) { left: 85%; animation-delay: 5s; animation-duration: 13s; }
-.particle:nth-child(7) { left: 15%; animation-delay: 6s; animation-duration: 17s; }
-.particle:nth-child(8) { left: 60%; animation-delay: 7s; animation-duration: 15s; }
-
-@keyframes float {
-    0%, 100% { transform: translateY(100vh) scale(0); opacity: 0; }
-    10% { opacity: 0.15; }
-    90% { opacity: 0.15; }
-    50% { transform: translateY(-10vh) scale(1); }
-}
-
-.hero-header {
-    background: linear-gradient(135deg, rgba(0,214,143,0.15) 0%, rgba(255,215,0,0.08) 50%, rgba(0,214,143,0.15) 100%);
-    border: 1px solid rgba(0,214,143,0.2); border-radius: 20px;
-    padding: 2rem 2.5rem; margin-bottom: 2rem;
-    position: relative; overflow: hidden;
-    animation: slideInDown 0.8s ease-out;
-}
-.hero-header::before {
-    content: ''; position: absolute; top: -50%; left: -50%;
-    width: 200%; height: 200%;
-    background: radial-gradient(ellipse at center, rgba(0,214,143,0.08) 0%, transparent 70%);
-    animation: rotateGradient 20s linear infinite;
-}
-@keyframes rotateGradient {
-    0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); }
-}
-.hero-title {
-    font-size: 2.5rem; font-weight: 800;
-    background: linear-gradient(135deg, #00d68f 0%, #ffd700 50%, #00d68f 100%);
-    background-size: 200% auto;
-    -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
-    animation: shimmer 3s ease-in-out infinite; margin: 0;
-    position: relative; z-index: 1;
-}
-@keyframes shimmer {
-    0%, 100% { background-position: 0% center; }
-    50% { background-position: 200% center; }
-}
-.hero-subtitle {
-    color: #7a9a7a; font-size: 1rem; margin-top: 0.5rem;
-    position: relative; z-index: 1;
-}
-.hero-badge {
-    display: inline-flex; align-items: center; gap: 6px;
-    background: rgba(0,214,143,0.15); border: 1px solid rgba(0,214,143,0.3);
-    border-radius: 20px; padding: 4px 12px; font-size: 0.75rem;
-    color: #00d68f; margin-top: 0.75rem;
-    position: relative; z-index: 1;
-}
-.hero-badge .dot {
-    width: 6px; height: 6px; background: #00d68f; border-radius: 50%;
-    animation: pulse 2s infinite;
-}
-@keyframes pulse {
-    0%, 100% { box-shadow: 0 0 0 0 rgba(0,214,143,0.4); }
-    50% { box-shadow: 0 0 0 8px rgba(0,214,143,0); }
-}
-
-.metric-card {
-    background: rgba(0, 214, 143, 0.06); backdrop-filter: blur(20px);
-    border: 1px solid rgba(0,214,143,0.15); border-radius: 16px;
-    padding: 1.5rem; position: relative; overflow: hidden;
-    transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-    transform-style: preserve-3d; perspective: 1000px;
-    animation: slideInUp 0.6s ease-out backwards;
-}
-.metric-card:nth-child(1) { animation-delay: 0.1s; }
-.metric-card:nth-child(2) { animation-delay: 0.2s; }
-.metric-card:nth-child(3) { animation-delay: 0.3s; }
-.metric-card:nth-child(4) { animation-delay: 0.4s; }
-.metric-card:hover {
-    transform: translateY(-8px) rotateX(2deg) rotateY(-2deg);
-    border-color: rgba(0,214,143,0.4);
-    box-shadow: 0 20px 60px rgba(0,214,143,0.15), 0 0 40px rgba(0,214,143,0.1);
-}
-.metric-card::before {
-    content: ''; position: absolute; top: 0; left: -100%;
-    width: 100%; height: 100%;
-    background: linear-gradient(90deg, transparent, rgba(0,214,143,0.05), transparent);
-    transition: left 0.5s ease;
-}
-.metric-card:hover::before { left: 100%; }
-.metric-card .icon { font-size: 2rem; margin-bottom: 0.75rem; filter: drop-shadow(0 0 10px rgba(0,214,143,0.5)); }
-.metric-card .label {
-    font-size: 0.75rem; font-weight: 600; text-transform: uppercase;
-    letter-spacing: 0.1em; color: #7a9a7a; margin-bottom: 0.25rem;
-}
-.metric-card .value { font-size: 2rem; font-weight: 800; color: #00d68f; line-height: 1; }
-.metric-card .value.gold { color: #ffd700; }
-.metric-card .delta { font-size: 0.8rem; margin-top: 0.5rem; display: flex; align-items: center; gap: 4px; }
-.metric-card .delta.positive { color: #00ff88; }
-.metric-card .delta.negative { color: #ff4757; }
-
-@keyframes slideInUp { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
-@keyframes slideInDown { from { opacity: 0; transform: translateY(-30px); } to { opacity: 1; transform: translateY(0); } }
-
-.section-header {
-    font-size: 1.25rem; font-weight: 700; color: #e8f0e8;
-    margin: 2rem 0 1rem 0; display: flex; align-items: center; gap: 10px;
-}
-.section-header::after {
-    content: ''; flex: 1; height: 1px;
-    background: linear-gradient(90deg, rgba(0,214,143,0.3), transparent);
-}
-
-.glass-panel {
-    background: rgba(0, 214, 143, 0.06); backdrop-filter: blur(20px);
-    border: 1px solid rgba(0,214,143,0.12); border-radius: 16px;
-    padding: 1.5rem; margin-bottom: 1.5rem; animation: fadeIn 0.6s ease-out;
-}
-@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-
-.badge {
-    display: inline-flex; align-items: center; gap: 4px;
-    padding: 4px 10px; border-radius: 12px; font-size: 0.7rem;
-    font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;
-}
-.badge.success { background: rgba(0,255,136,0.15); color: #00ff88; border: 1px solid rgba(0,255,136,0.3); }
-.badge.danger { background: rgba(255,71,87,0.15); color: #ff4757; border: 1px solid rgba(255,71,87,0.3); }
-.badge.warning { background: rgba(255,165,2,0.15); color: #ffa502; border: 1px solid rgba(255,165,2,0.3); }
-.badge.info { background: rgba(0,214,143,0.15); color: #00d68f; border: 1px solid rgba(0,214,143,0.3); }
-
-.progress-ring { transform: rotate(-90deg); }
-.progress-ring-bg { fill: none; stroke: rgba(0,214,143,0.1); stroke-width: 8; }
-.progress-ring-fill {
-    fill: none; stroke-width: 8; stroke-linecap: round;
-    stroke-dasharray: 440; stroke-dashoffset: 440;
-    animation: progressFill 2s ease-out forwards;
-    filter: drop-shadow(0 0 8px rgba(0,214,143,0.5));
-}
-@keyframes progressFill { to { stroke-dashoffset: var(--progress-offset); } }
-
-.phone-mockup {
-    width: 320px; margin: 0 auto; background: #1a1a2e;
-    border-radius: 36px; padding: 12px;
-    box-shadow: 0 20px 60px rgba(0,0,0,0.5), 0 0 40px rgba(0,214,143,0.1);
-    border: 2px solid rgba(0,214,143,0.2);
-}
-.phone-screen { background: #0d1117; border-radius: 28px; padding: 16px; min-height: 400px; }
-.phone-header {
-    text-align: center; padding: 8px 0 16px 0;
-    border-bottom: 1px solid rgba(0,214,143,0.1); margin-bottom: 12px;
-}
-.phone-header .app-name { font-size: 0.9rem; font-weight: 700; color: #00d68f; }
-.whatsapp-msg {
-    background: rgba(0,214,143,0.1); border: 1px solid rgba(0,214,143,0.15);
-    border-radius: 12px 12px 12px 0; padding: 10px 14px; margin-bottom: 8px;
-    font-size: 0.75rem; color: #e8f0e8; line-height: 1.4;
-    animation: slideInLeft 0.4s ease-out backwards;
-}
-.whatsapp-msg:nth-child(2) { animation-delay: 0.2s; }
-.whatsapp-msg:nth-child(3) { animation-delay: 0.4s; }
-.whatsapp-msg .time { font-size: 0.6rem; color: #7a9a7a; text-align: right; margin-top: 4px; }
-@keyframes slideInLeft { from { opacity: 0; transform: translateX(-20px); } to { opacity: 1; transform: translateX(0); } }
-
-[data-testid="stMetric"] {
-    background: rgba(0, 214, 143, 0.06); border: 1px solid rgba(0,214,143,0.15);
-    border-radius: 12px; padding: 1rem; transition: all 0.3s ease;
-}
-[data-testid="stMetric"]:hover { border-color: rgba(0,214,143,0.4); box-shadow: 0 0 30px rgba(0,214,143,0.1); }
-[data-testid="stMetricValue"] { color: #00d68f !important; font-weight: 700 !important; }
-[data-testid="stMetricLabel"] { color: #7a9a7a !important; text-transform: uppercase !important; letter-spacing: 0.05em !important; }
-[data-testid="stTab"] {
-    background: transparent !important; border-radius: 8px !important;
-    color: #7a9a7a !important; border: 1px solid transparent !important;
-}
-[data-testid="stTab"][aria-selected="true"] {
-    background: rgba(0,214,143,0.1) !important; color: #00d68f !important;
-    border-color: rgba(0,214,143,0.3) !important;
-}
-[data-testid="stDataFrame"] { border: 1px solid rgba(0,214,143,0.12) !important; border-radius: 12px !important; overflow: hidden !important; }
-.stSelectbox > div > div { background: rgba(0,214,143,0.06) !important; border-color: rgba(0,214,143,0.2) !important; color: #e8f0e8 !important; }
-.stNumberInput > div > div > input { background: rgba(0,214,143,0.06) !important; border-color: rgba(0,214,143,0.2) !important; color: #e8f0e8 !important; }
-.stExpander { background: rgba(0,214,143,0.06) !important; border: 1px solid rgba(0,214,143,0.12) !important; border-radius: 12px !important; }
-h1, h2, h3, h4, h5, h6 { color: #e8f0e8 !important; }
-.stMarkdown { color: #e8f0e8; }
-.stSelectbox label, .stNumberInput label { color: #7a9a7a !important; }
-
-::-webkit-scrollbar { width: 6px; }
-::-webkit-scrollbar-track { background: #0a1a0f; }
-::-webkit-scrollbar-thumb { background: rgba(0,214,143,0.3); border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: #00d68f; }
-</style>
-
-<div class="particles">
-    <div class="particle"></div><div class="particle"></div><div class="particle"></div>
-    <div class="particle"></div><div class="particle"></div><div class="particle"></div>
-    <div class="particle"></div><div class="particle"></div>
-</div>
-"""
+        st.markdown('</div>', unsafe_allow_html=True)
 
 
 if __name__ == "__main__":
