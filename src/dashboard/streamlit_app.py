@@ -124,9 +124,8 @@ html { scroll-behavior: smooth; }
     background: #0c1310 !important;
     font-family: 'Outfit', sans-serif !important;
     color: #c8d8cc !important;
-    position: relative;
 }
-.stApp::after {
+html::after {
     content: '';
     position: fixed;
     inset: 0;
