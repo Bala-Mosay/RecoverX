@@ -1,9 +1,9 @@
 version: "3.8"
 
 services:
-  mandatemind:
+  recoverx:
     build: .
-    container_name: mandatemind-engine
+    container_name: recoverx-engine
     volumes:
       - ./data:/app/data
       - ./models:/app/models
@@ -15,7 +15,7 @@ services:
 
   api:
     build: .
-    container_name: mandatemind-api
+    container_name: recoverx-api
     ports:
       - "8000:8000"
     volumes:
@@ -26,11 +26,11 @@ services:
       - RAZORPAY_TEST_SECRET=${RAZORPAY_TEST_SECRET}
     command: python -m uvicorn src.api.main:app --host 0.0.0.0 --port 8000
     depends_on:
-      - mandatemind
+      - recoverx
 
   dashboard:
     build: .
-    container_name: mandatemind-dashboard
+    container_name: recoverx-dashboard
     ports:
       - "8501:8501"
     volumes:
@@ -39,11 +39,11 @@ services:
       - PYTHONUNBUFFERED=1
     command: python -m streamlit run src/dashboard/streamlit_app.py --server.port 8501 --server.address 0.0.0.0
     depends_on:
-      - mandatemind
+      - recoverx
 
   tests:
     build: .
-    container_name: mandatemind-tests
+    container_name: recoverx-tests
     volumes:
       - ./data:/app/data
     command: python -m pytest tests/ -v

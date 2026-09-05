@@ -15,7 +15,7 @@ def test_health_check():
     assert response.status_code == 200
     data = response.json()
     assert data["status"] == "healthy"
-    assert data["service"] == "MandateMind"
+    assert data["service"] == "RecoverX"
     assert "timestamp" in data
 
 

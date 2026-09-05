@@ -1,4 +1,4 @@
-# MandateMind Demo Guide
+# RecoverX Demo Guide
 
 ## Quick Start (5 minutes)
 

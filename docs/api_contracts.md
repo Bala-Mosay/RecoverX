@@ -19,7 +19,7 @@ GET /health
 {
   "status": "healthy",
   "timestamp": "2026-08-30T14:30:00.000Z",
-  "service": "MandateMind"
+  "service": "RecoverX"
 }
 ```
 

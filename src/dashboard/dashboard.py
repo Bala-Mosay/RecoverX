@@ -67,7 +67,7 @@ if __name__ == "__main__":
         retries = load_retries()
         results = load_simulation_results()
 
-        print(f"=== MandateMind Dashboard ===")
+        print(f"=== RecoverX Dashboard ===")
         print(f"Total Events: {len(events)}")
         print(f"Compliance Decisions: {len(compliance)}")
         print(f"Retry Actions: {len(retries)}")
@@ -94,8 +94,8 @@ if __name__ == "__main__":
             print(f"  Compliance Blocks: {r['compliance_blocks']}")
         sys.exit(0)
 
-    st.set_page_config(page_title="MandateMind", layout="wide")
-    st.title("MandateMind Dashboard")
+    st.set_page_config(page_title="RecoverX", layout="wide")
+    st.title("RecoverX Dashboard")
 
     tab1, tab2, tab3, tab4 = st.tabs(["Overview", "Events", "Compliance", "Simulations"])
 

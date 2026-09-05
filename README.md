@@ -1,4 +1,4 @@
-# MandateMind / PayShield AI
+# RecoverX
 
 > AI-Powered Payment Recovery Engine with RBI e-Mandate Compliance
 
@@ -19,7 +19,7 @@ Manual compliance is error-prone. Most merchants either over-retry (violating RB
 
 ## The Solution
 
-MandateMind is an AI engine that sits between Razorpay and the merchant, automatically deciding:
+RecoverX is an AI engine that sits between Razorpay and the merchant, automatically deciding:
 
 1. **When to retry** - AI predicts optimal delay based on failure type and history
 2. **Whether to retry** - Compliance guard enforces all RBI rules
@@ -274,7 +274,7 @@ python run_recovery.py --eval
 ## Project Structure
 
 ```
-MandateMind/
+RecoverX/
   demo.py                          # 3-customer demo
   run_recovery.py                  # Main orchestrator
   run_whatsapp_sim.py              # WhatsApp notification simulator

@@ -1,6 +1,6 @@
 # Executive Summary
 
-We propose **“MandateMind/PayShield AI”**, an AI-powered payment recovery engine for recurring payments that strictly enforces RBI e-mandate regulations while maximizing recoveries. It combines a machine‐learning/LLM *Retry Predictor* with a deterministic *RBIComplianceGuard* that codifies the latest RBI/NPCI rules (e.g. **24‐hour pre‐debit notice**, ₹15,000 AFA threshold (₹1 L for certain categories), and a retry cap of one original plus 3 retries). When a subscription charge fails, Razorpay Webhooks feed into our system. An *AI Failure Analyzer* examines context (customer/payment history, error codes, time-of-day, etc.) and recommends an optimal retry time. This recommendation then passes through **RBIComplianceGuard**, which returns a structured decision (allowed/blocked, action, next time, reason). Valid retries trigger the Razorpay Subscriptions API; blocked cases either issue a step-up payment link or halt the mandate after 3 strikes. All actions and decisions are logged for audit. 
+We propose **“RecoverX”**, an AI-powered payment recovery engine for recurring payments that strictly enforces RBI e-mandate regulations while maximizing recoveries. It combines a machine‐learning/LLM *Retry Predictor* with a deterministic *RBIComplianceGuard* that codifies the latest RBI/NPCI rules (e.g. **24‐hour pre‐debit notice**, ₹15,000 AFA threshold (₹1 L for certain categories), and a retry cap of one original plus 3 retries). When a subscription charge fails, Razorpay Webhooks feed into our system. An *AI Failure Analyzer* examines context (customer/payment history, error codes, time-of-day, etc.) and recommends an optimal retry time. This recommendation then passes through **RBIComplianceGuard**, which returns a structured decision (allowed/blocked, action, next time, reason). Valid retries trigger the Razorpay Subscriptions API; blocked cases either issue a step-up payment link or halt the mandate after 3 strikes. All actions and decisions are logged for audit. 
 
 We align closely with the Razorpay 2026 AI Buildathon’s **“AI Revenue Recovery”** track: detecting revenue at risk, choosing interventions, executing bounded workflows, and measuring **compliance and recovery metrics**. Our submission will include an end-to-end demo of 3 customer scenarios, plus charts comparing recovery % and compliance-violation rates against baseline methods.  
 
@@ -418,7 +418,7 @@ We break development into three phases: **MVP**, **Beta**, and **Production-Read
 
 ```mermaid
 gantt
-title MandateMind Project Timeline
+title RecoverX Project Timeline
 dateFormat  YYYY-MM-DD
 section Phase 1: MVP (Weeks 1-2)
 Repo & CI               :done,    des1, 2026-08-01, 2d
@@ -576,7 +576,7 @@ elif decision.allowed:
 We will compare:
 1. **Immediate Retry (Baseline):** Retry immediately (1h after failure) up to 3 times.
 2. **Smart Retry (AI-only):** AI schedules retries, but ignoring 24h/AFA.
-3. **MandateMind (Our System):** AI + ComplianceGuard.
+3. **RecoverX (Our System):** AI + ComplianceGuard.
 
 We expect our system to recover more than baseline with fewer attempts and zero compliance issues.
 
@@ -586,7 +586,7 @@ We expect our system to recover more than baseline with fewer attempts and zero 
 |-------------------|-----------:|------------------:|----------------------:|---------------------:|
 | Immediate Retry   |   31.2%    |       3.0         |      12               |    312,000 / 1,000,000 |
 | AI-only           |   38.7%    |       2.4         |      5                |    387,000 / 1,000,000 |
-| **MandateMind**   | **43.9%**  | **1.9**           | **0**                | **439,000 / 1,000,000** |
+| **RecoverX**   | **43.9%**  | **1.9**           | **0**                | **439,000 / 1,000,000** |
 
 *(Numbers illustrative; will derive from actual simulation.)*
 
@@ -651,7 +651,7 @@ Each of these can help expedite coding and documentation for your team.
 Proposed repo layout:
 
 ```
-/mandatemind/
+/recoverx/
   README.md
   requirements.txt
   /src/

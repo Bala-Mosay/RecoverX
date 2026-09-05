@@ -21,7 +21,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("webhook_server")
 
 app = FastAPI(
-    title="MandateMind API",
+    title="RecoverX API",
     description="AI-Powered Payment Recovery Engine with RBI Compliance",
     version="1.0.0",
 )
@@ -38,7 +38,7 @@ async def health_check():
     return {
         "status": "healthy",
         "timestamp": datetime.now().isoformat(),
-        "service": "MandateMind",
+        "service": "RecoverX",
     }
 
 

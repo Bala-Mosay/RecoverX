@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-MandateMind Demo Script
+RecoverX Demo Script
 Runs 3 customer scenarios to showcase the recovery engine.
 """
 import sys
@@ -22,7 +22,7 @@ console = Console()
 
 def print_header():
     console.print(Panel.fit(
-        "[bold cyan]MandateMind / PayShield AI[/]\n"
+        "[bold cyan]RecoverX[/]\n"
         "[dim]AI-Powered Payment Recovery Engine with RBI Compliance[/]",
         box=box.DOUBLE,
     ))

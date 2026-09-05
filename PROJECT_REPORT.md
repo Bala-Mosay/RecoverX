@@ -1,4 +1,4 @@
-# MandateMind / PayShield AI
+# RecoverX
 
 ## Project Report
 
@@ -30,7 +30,7 @@
 
 ## 1. Executive Summary
 
-**MandateMind** (also known as **PayShield AI**) is an AI-powered payment recovery engine designed for recurring payments that strictly enforces RBI e-mandate regulations while maximizing revenue recovery.
+**RecoverX** is an AI-powered payment recovery engine designed for recurring payments that strictly enforces RBI e-mandate regulations while maximizing revenue recovery.
 
 The system processes failed recurring payments through a three-stage pipeline:
 
@@ -87,7 +87,7 @@ Manual compliance is error-prone. Most merchants either:
 
 ## 3. Proposed Solution
 
-MandateMind automates the entire retry decision process:
+RecoverX automates the entire retry decision process:
 
 ```
 Payment Failure Event
@@ -120,7 +120,7 @@ Payment Failure Event
 
 ### Value Proposition
 
-| Metric | Without MandateMind | With MandateMind |
+| Metric | Without RecoverX | With RecoverX |
 |--------|---------------------|------------------|
 | Recovery Rate | 5-10% | 43.5% |
 | Compliance Violations | Frequent | Zero |
@@ -157,7 +157,7 @@ RBI's *Digital Payments - E-Mandate Framework* (cir. DPSS.POLC.No.S-528/02-14-00
 
 ### 4.2 Razorpay Subscriptions API
 
-MandateMind leverages Razorpay's subscription infrastructure:
+RecoverX leverages Razorpay's subscription infrastructure:
 
 - **Subscriptions API** - Create and manage recurring payment mandates
 - **Webhooks** - Receive real-time payment failure events
@@ -187,7 +187,7 @@ Key webhook events consumed:
                     Webhooks |
                              v
 +-------------------+-------------------+
-|          MandateMind Engine           |
+|          RecoverX Engine           |
 +---------------------------------------+
 |                                       |
 |  +-------------+  +---------------+  |
@@ -301,7 +301,7 @@ simulation_results
 ### 6.2 Project Structure
 
 ```
-MandateMind/
+RecoverX/
 ├── src/
 │   ├── api/
 │   │   ├── __init__.py
@@ -720,15 +720,36 @@ python run_recovery.py --eval
 
 ### 13.1 Streamlit Dashboard
 
-5 tabs providing comprehensive visibility:
+5 tabs providing comprehensive visibility, built with a premium dark theme:
 
 | Tab | Description |
 |-----|-------------|
-| **Overview** | Total events, recovery rate, compliance breakdown |
-| **Events** | All payment failures with filters |
-| **Compliance** | Allowed vs blocked decisions |
-| **Notifications** | WhatsApp message previews |
-| **Simulations** | Historical run results |
+| **Overview** | Metric cards (2+2 grid), recovery rate ring, compliance bar chart, retry pie chart, amount histogram |
+| **Events** | Filterable payment event table with failure code, amount range filters |
+| **Compliance** | Allowed vs blocked bar chart, top blocking reasons, decision history |
+| **Notifications** | WhatsApp phone mockup with message previews, template distribution chart, filterable history |
+| **Simulations** | Historical run results table, recovery rate time-series |
+
+**Design System:**
+
+| Property | Value |
+|----------|-------|
+| Background | `#0c1310` (deep forest) |
+| Accent | `#5ee0a8` (emerald) |
+| Text | `#c8d8cc` (muted sage) |
+| Font | Outfit (400, 500, 600, 700) |
+| Cards | Double-bezel (outer shell + inner core) with grain texture overlay |
+| Transitions | Spring cubic-bezier(0.16, 1, 0.3, 1) |
+| Icons | Inline SVG (1.5px stroke) |
+| Charts | Plotly with Outfit font family |
+
+**Features:**
+- Tabular numeric alignment on all numbers
+- Progress ring with dynamic color (green/amber/red by threshold)
+- Styled empty states with icon + hint text
+- Responsive layout (collapses to single-column on mobile)
+- Focus-visible ring for keyboard accessibility
+- Grain texture overlay (SVG noise, opacity 0.03)
 
 ### 13.2 API Endpoints
 
@@ -792,9 +813,9 @@ docker-compose up dashboard
 
 | Service | Port | Description |
 |---------|------|-------------|
-| mandatemind | - | Core engine |
+| recoverx | - | Core engine (run_recovery.py) |
 | api | 8000 | FastAPI webhook receiver |
-| dashboard | 8501 | Streamlit web UI |
+| dashboard | 8501 | Streamlit web UI (premium dark theme) |
 | tests | - | Run test suite |
 
 ### 14.3 CI/CD Pipeline
@@ -867,7 +888,7 @@ ngrok http 8000
 
 ## 16. Conclusion
 
-MandateMind successfully demonstrates an AI-powered payment recovery engine that:
+RecoverX successfully demonstrates an AI-powered payment recovery engine that:
 
 1. **Maximizes Recovery** - 43.5% recovery rate (8x better than manual retry)
 2. **Ensures Compliance** - Zero RBI violations across all scenarios
@@ -890,7 +911,7 @@ MandateMind successfully demonstrates an AI-powered payment recovery engine that
 
 For a merchant with 10,000 recurring subscribers and 10% failure rate:
 
-| Scenario | Without MandateMind | With MandateMind |
+| Scenario | Without RecoverX | With RecoverX |
 |----------|---------------------|------------------|
 | Failed Payments | 1,000 | 1,000 |
 | Recovered | 50 (5%) | 435 (43.5%) |
@@ -995,4 +1016,4 @@ For a merchant with 10,000 recurring subscribers and 10% failure rate:
 
 **Report prepared for Razorpay AI Buildathon 2026**
 
-**Team: MandateMind**
+**Team: RecoverX**

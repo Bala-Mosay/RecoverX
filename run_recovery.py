@@ -232,7 +232,7 @@ class RecoveryOrchestrator:
 
         console.print(
             Panel.fit(
-                "[bold cyan]MandateMind Recovery Engine[/]",
+                "[bold cyan]RecoverX Recovery Engine[/]",
                 box=box.DOUBLE,
             )
         )
@@ -322,7 +322,7 @@ class RecoveryOrchestrator:
 def run_evaluation(events_count=10000):
     from src.ai.data_gen import generate_events as gen
 
-    console.print(Panel.fit("[bold yellow]MandateMind Evaluation[/]", box=box.DOUBLE))
+    console.print(Panel.fit("[bold yellow]RecoverX Evaluation[/]", box=box.DOUBLE))
 
     events = gen(events_count)
     console.print(f"Generated {len(events)} events\n")
@@ -356,7 +356,7 @@ def run_evaluation(events_count=10000):
 
 
 def run_demo():
-    console.print(Panel.fit("[bold yellow]MandateMind Demo: 3 Customer Scenarios[/]", box=box.DOUBLE))
+    console.print(Panel.fit("[bold yellow]RecoverX Demo: 3 Customer Scenarios[/]", box=box.DOUBLE))
 
     scenarios = [
         ("Customer A - Auto Recovery", FailedPaymentEvent(

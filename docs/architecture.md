@@ -2,7 +2,7 @@
 
 ## System Overview
 
-MandateMind (PayShield AI) is an AI-powered payment recovery engine that processes failed recurring payments through a compliance-first pipeline, ensuring RBI e-mandate regulations are never violated.
+RecoverX is an AI-powered payment recovery engine that processes failed recurring payments through a compliance-first pipeline, ensuring RBI e-mandate regulations are never violated.
 
 ## Data Flow
 

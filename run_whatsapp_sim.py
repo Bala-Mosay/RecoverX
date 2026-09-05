@@ -18,22 +18,22 @@ WHATSAPP_TEMPLATES = {
     "pre_debit_notice": {
         "title": "Pre-Debit Notice (24h)",
         "icon": " ",
-        "body": "Dear {customer_id},\n\nA payment of Rs.{amount} will be debited from your account for subscription {subscription_id} on {date}.\n\nTo cancel this mandate, visit: {cancel_url}\n\n- MandateMind",
+        "body": "Dear {customer_id},\n\nA payment of Rs.{amount} will be debited from your account for subscription {subscription_id} on {date}.\n\nTo cancel this mandate, visit: {cancel_url}\n\n- RecoverX",
     },
     "retry_notification": {
         "title": "Payment Retry Scheduled",
         "icon": " ",
-        "body": "Dear {customer_id},\n\nWe will retry your payment of Rs.{amount} for {subscription_id} at {retry_time}.\n\nNo action needed if your account has sufficient balance.\n\n- MandateMind",
+        "body": "Dear {customer_id},\n\nWe will retry your payment of Rs.{amount} for {subscription_id} at {retry_time}.\n\nNo action needed if your account has sufficient balance.\n\n- RecoverX",
     },
     "stepup_link": {
         "title": "Action Required - Verification",
         "icon": " ",
-        "body": "Dear {customer_id},\n\nYour payment of Rs.{amount} requires additional verification as per RBI guidelines.\n\nComplete payment here: {payment_url}\n\nThis link expires in 24 hours.\n\n- MandateMind",
+        "body": "Dear {customer_id},\n\nYour payment of Rs.{amount} requires additional verification as per RBI guidelines.\n\nComplete payment here: {payment_url}\n\nThis link expires in 24 hours.\n\n- RecoverX",
     },
     "mandate_exhausted": {
         "title": "Subscription Paused",
         "icon": " ",
-        "body": "Dear {customer_id},\n\nYour subscription {subscription_id} has been paused after multiple payment failures.\n\nPlease update your payment method or contact support.\n\n- MandateMind",
+        "body": "Dear {customer_id},\n\nYour subscription {subscription_id} has been paused after multiple payment failures.\n\nPlease update your payment method or contact support.\n\n- RecoverX",
     },
 }
 
@@ -111,7 +111,7 @@ def display_notification(payload: dict):
 
 
 def run_simulation(count: int = 5):
-    console.print("\n[bold cyan]MandateMind WhatsApp Notification Simulator[/bold cyan]\n")
+    console.print("\n[bold cyan]RecoverX WhatsApp Notification Simulator[/bold cyan]\n")
 
     db = SessionLocal()
 
@@ -151,7 +151,7 @@ def run_simulation(count: int = 5):
 
 if __name__ == "__main__":
     import argparse
-    parser = argparse.ArgumentParser(description="MandateMind WhatsApp Notification Simulator")
+    parser = argparse.ArgumentParser(description="RecoverX WhatsApp Notification Simulator")
     parser.add_argument("-n", "--count", type=int, default=5, help="Number of notifications to generate")
     args = parser.parse_args()
 

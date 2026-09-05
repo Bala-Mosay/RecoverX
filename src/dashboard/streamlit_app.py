@@ -467,13 +467,13 @@ h1, h2, h3, h4, h5, h6 { color: #e0ece4 !important; }
 # MAIN APP
 # ═══════════════════════════════════════════════════════════════════════════════
 def main():
-    st.set_page_config(page_title="MandateMind", page_icon=" ", layout="wide", initial_sidebar_state="collapsed")
+    st.set_page_config(page_title="RecoverX", page_icon=" ", layout="wide", initial_sidebar_state="collapsed")
     st.markdown(STYLE, unsafe_allow_html=True)
 
     # Hero
     st.markdown("""<div class="hero">
         <div>
-            <h1>MandateMind</h1>
+            <h1>RecoverX</h1>
             <p>Payment recovery engine enforcing RBI e-mandate rules for recurring payments.</p>
             <div class="hero-badge">Razorpay AI Buildathon 2026</div>
         </div>
@@ -662,7 +662,7 @@ def tab_notifications():
             msgs += f'<div class="wa-msg">{body}<div class="wa-time">{ts}</div></div>'
         st.markdown(f"""<div class="phone">
             <div class="phone-inner">
-                <div class="phone-top"><strong>MandateMind</strong><small>WhatsApp Business</small></div>
+                <div class="phone-top"><strong>RecoverX</strong><small>WhatsApp Business</small></div>
                 {msgs}
             </div>
         </div>""", unsafe_allow_html=True)
