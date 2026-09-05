@@ -167,17 +167,17 @@ python -m pytest tests/ -v
 
 ## Dashboard
 
-The Streamlit dashboard has 5 tabs:
+Premium dark theme built with Streamlit. Start with: `streamlit run src/dashboard/streamlit_app.py`
 
 | Tab | Shows |
 |-----|-------|
-| **Overview** | Total events, recovery rate, compliance breakdown |
-| **Events** | All payment failure events with filters |
-| **Compliance** | Allowed vs blocked decisions with reasons |
-| **Notifications** | WhatsApp message previews |
-| **Simulations** | Historical run results and trends |
+| **Overview** | 2+2 metric card grid, recovery rate ring, compliance bar chart, retry pie chart, amount histogram |
+| **Events** | Filterable payment event table with failure code and amount range filters |
+| **Compliance** | Allowed vs blocked bar chart, top blocking reasons, decision history |
+| **Notifications** | WhatsApp phone mockup with message previews, template distribution chart, filterable history |
+| **Simulations** | Historical run results table, recovery rate time-series |
 
-Start with: `streamlit run src/dashboard/streamlit_app.py`
+**Design:** Outfit font, `#0c1310` background, emerald `#5ee0a8` accent, grain texture overlay, double-bezel card architecture, spring transitions, inline SVG icons, Plotly charts.
 
 ---
 
@@ -253,21 +253,51 @@ python run_recovery.py --eval
 - **ML Model** is more conservative (26.5%) but may be more accurate
 - **Compliance blocks** are identical (99) - same RBI rules enforced
 
+### ML Model Details
+
+| Property | Value |
+|----------|-------|
+| Model | DecisionTreeClassifier (max_depth=8) |
+| Training data | 10,000 synthetic events (8,000 train / 2,000 test) |
+| Accuracy | 68.7% |
+| Precision (retry) | 50.9% |
+| Recall (retry) | 37.1% |
+| Precision (no-retry) | 74.1% |
+| Recall (no-retry) | 83.4% |
+
+**Feature importance:**
+
+| Feature | Importance |
+|---------|-----------|
+| failure_code | 40.3% |
+| amount | 18.3% |
+| attempt_count | 8.7% |
+| previous_success_count | 7.5% |
+| days_since_last | 5.4% |
+| hour_of_day | 5.3% |
+| day_of_month | 5.0% |
+| previous_failure_count | 3.5% |
+| bank | 3.5% |
+| merchant_category | 2.6% |
+
 ---
 
 ## Tech Stack
 
-| Component | Technology |
-|-----------|------------|
-| API | FastAPI |
-| Database | SQLite + SQLAlchemy ORM |
-| AI/ML | scikit-learn DecisionTree |
-| Dashboard | Streamlit |
-| Integration | Razorpay SDK (test mode) |
-| Notifications | Mock WhatsApp adapter |
-| Testing | pytest (35 tests) |
-| Container | Docker + docker-compose |
-| CI/CD | GitHub Actions |
+| Component | Technology | Version |
+|-----------|------------|---------|
+| Language | Python | 3.13.7 |
+| API | FastAPI + Uvicorn | 0.110+ |
+| Database | SQLite + SQLAlchemy ORM | 2.0+ |
+| ML | scikit-learn DecisionTree | 1.4+ |
+| Dashboard | Streamlit + Plotly | 1.62+ |
+| Integration | Razorpay SDK | 1.4+ |
+| CLI Output | Rich (tables, panels) | 13+ |
+| Data Gen | Faker | 24+ |
+| Testing | pytest | 8.0+ |
+| Container | Docker + docker-compose | - |
+| CI/CD | GitHub Actions | - |
+| Frontend Font | Outfit (Google Fonts) | 400-700 |
 
 ---
 
@@ -314,8 +344,9 @@ RecoverX/
     api_contracts.md               # API documentation
   
   models/
-    success_model.pkl              # Trained ML model
-    delay_model.pkl                # Trained delay model
+    success_model.pkl              # Trained ML model (success prediction)
+    delay_model.pkl                # Trained ML model (delay prediction)
+    metrics.json                   # Model accuracy and feature importance
   
   .github/workflows/ci.yml        # CI/CD pipeline
   Dockerfile                       # Docker build
