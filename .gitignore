@@ -52,3 +52,15 @@ Thumbs.db
 models/*.pkl
 models/metrics.json
 training_data.csv
+
+# Agent configs
+.agents/
+.claude/
+skills-lock.json
+
+# Playwright artifacts
+.playwright-mcp/
+
+# Streamlit temp logs
+st_err.txt
+st_out.txt
